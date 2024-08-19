@@ -12,7 +12,6 @@ const FONT_SIZE: Pixels = 16.0;
 const THICKNESS: Pixels = 2.0;
 const RADIUS: Pixels = 10.0;
 const MAX_DRAWN: i32 = 100000;
-
 const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
 const STRONG_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.7);
 const SETTLED_CIRCLE_COLOR: Color = Color::new(0.8, 0.5, 0.2, 0.7);
@@ -176,7 +175,7 @@ fn draw_circles(
                 scale: 1.0,
                 radius: RADIUS,
             };
-            if let Err(_) = draw_nested(recursion, circles, selected, *circle, color, &mut drawn) {
+            if let Err(_) = draw_nested(recursion, circles, selected, Vec2::default(),  *circle, color, &mut drawn) {
                 too_many = true;
             }
         }
@@ -211,18 +210,21 @@ fn draw_nested(
     mut recursion: Recursion,
     circles: &Vec<NormalizedPosition>,
     selected: &Option<usize>,
+    reference: NormalizedPosition,
     circle: NormalizedPosition,
     color: Color,
     drawn: &mut i32,
 ) -> Result<(), AnyError> {
     recursion.reduce();
     let absolute_pos = normalized_to_canvas_absolute(circle);
+    let absolute_pos_ref = normalized_to_canvas_absolute(reference);
     let side = recursion.radius * 1.5;
     let drawing_color = recursion.color(color);
+        draw_line(absolute_pos_ref.x, absolute_pos_ref.y, absolute_pos.x, absolute_pos.y, 1.0, color);
     if recursion.should_continue() {
 
         // draw_circle(absolute_pos.x, absolute_pos.y, recursion.radius, drawing_color);
-        draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, drawing_color);
+        // draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, drawing_color);
     } else {
         draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, drawing_color);
     }
@@ -238,7 +240,7 @@ fn draw_nested(
                 color
             };
             let nested_pos = nest_pos(circle, *circle_1, recursion.scale);
-            draw_nested(recursion, circles, selected, nested_pos, color2, drawn)?;
+            draw_nested(recursion, circles, selected, circle, nested_pos, color2, drawn)?;
         }
     }
     Ok(())
@@ -297,5 +299,5 @@ fn normalized_to_canvas_absolute(pos: NormalizedPosition) -> PixelPosition {
     let sw = screen_width();
     let canvas_x = 0.3 * (screen_width() - 4.0 * PAD - EDITOR_SIZE);
     let canvas_y = canvas_x;
-    return Vec2::new(pos.x * canvas_x + sw * 0.4, pos.y * canvas_y + sw * 0.15);
+    return Vec2::new(pos.x * canvas_x + sw * 0.45, pos.y * canvas_y + sw * 0.2);
 }
