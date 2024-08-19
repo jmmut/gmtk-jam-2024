@@ -8,34 +8,43 @@ const THICKNESS: f32 = 2.0;
 
 const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
 const STRONG_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.7);
+const SETTLED_CIRCLE_COLOR: Color = Color::new(0.8, 0.5, 0.2, 0.7);
 
 #[macroquad::main("MY_CRATE_NAME")]
 async fn main() {
+    let mut circles = Vec::<Vec2>::new();
     loop {
+        if is_key_pressed(KeyCode::Escape) {
+            break;
+        }
         clear_background(DARKGRAY);
         draw_rectangle_lines(PAD, PAD, EDITOR_SIZE, EDITOR_SIZE, THICKNESS, LIGHTGRAY);
-
-        let color = if is_mouse_button_down(MouseButton::Left) {
-            STRONG_CIRCLE_COLOR
-        } else {
-            FAINT_CIRCLE_COLOR
-        };
 
         let mouse_pos = mouse_position();
         if let Some(pos) = pos_in_editor(mouse_pos) {
             let absolute_pos = editor_normalized_to_absolute(pos);
-            draw_circle_lines(absolute_pos.x, absolute_pos.y, 10.0, 2.0, color);
+            let color = if is_mouse_button_down(MouseButton::Left) {
+                STRONG_CIRCLE_COLOR
+            } else {
+                FAINT_CIRCLE_COLOR
+            };
+            if is_mouse_button_released(MouseButton::Left) {
+                circles.push(pos);
+            } else {
+                draw_circle_lines(absolute_pos.x, absolute_pos.y, 10.0, 2.0, color);
+            }
         }
-
-        // draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
-        // draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
-        // draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
-        //
-        // draw_text("IT WORKS!", 20.0, 20.0, 30.0, DARKGRAY);
-
-        if is_key_pressed(KeyCode::Escape) {
-            break;
+        for circle in &circles {
+            let absolute_pos = editor_normalized_to_absolute(*circle);
+            draw_circle_lines(
+                absolute_pos.x,
+                absolute_pos.y,
+                10.0,
+                2.0,
+                SETTLED_CIRCLE_COLOR,
+            );
         }
+        
         next_frame().await
     }
 }
