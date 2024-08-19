@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use macroquad::ui::root_ui;
 
 type Pixels = f32;
 type NormalizedPosition = Vec2;
@@ -17,12 +18,14 @@ const SETTLED_CIRCLE_COLOR: Color = Color::new(0.8, 0.5, 0.2, 0.7);
 struct State {
     circles: Vec<NormalizedPosition>,
     selected: Option<usize>,
+    levels: i32,
 }
 impl State {
     pub fn new() -> Self {
         Self {
             circles: Vec::new(),
             selected: None,
+            levels: 1,
         }
     }
 }
@@ -37,6 +40,17 @@ async fn main() {
         clear_background(DARKGRAY);
         draw_rectangle_lines(PAD, PAD, EDITOR_SIZE, EDITOR_SIZE, THICKNESS, LIGHTGRAY);
 
+        if root_ui().button(Vec2::new(PAD, screen_height() * 0.5), " + ") {
+            state.levels += 1;
+        }
+        if state.levels > 0
+            && root_ui().button(
+                Vec2::new(PAD * 2.0 + FONT_SIZE, screen_height() * 0.5),
+                " - ",
+            )
+        {
+            state.levels -= 1;
+        }
         edit_circles(&mut state);
 
         draw_circles(&state);
@@ -45,7 +59,11 @@ async fn main() {
     }
 }
 
-fn edit_circles(State { circles, selected }: &mut State) {
+fn edit_circles(
+    State {
+        circles, selected, ..
+    }: &mut State,
+) {
     let mouse_pos = mouse_position();
     if let Some(pos) = pos_in_editor(mouse_pos) {
         let mut absolute_pos = normalized_to_editor_absolute(pos);
@@ -83,7 +101,13 @@ fn edit_circles(State { circles, selected }: &mut State) {
     }
 }
 
-fn draw_circles(State { circles, selected }: &State) {
+fn draw_circles(
+    State {
+        circles,
+        selected,
+        levels,
+    }: &State,
+) {
     let scale = 1.0;
     let mut drawn = 0;
     for (i, circle) in circles.iter().enumerate() {
@@ -99,12 +123,21 @@ fn draw_circles(State { circles, selected }: &State) {
             draw_circle_lines(absolute_pos.x, absolute_pos.y, RADIUS, THICKNESS, color);
         }
 
-        draw_nested(2, circles, selected, scale, *circle, color, &mut drawn);
+        draw_nested(
+            *levels, circles, selected, scale, *circle, color, &mut drawn,
+        );
     }
     draw_text(
         &format!("circles drawn: {}", drawn),
         PAD,
         screen_height() - PAD - FONT_SIZE,
+        FONT_SIZE,
+        BLACK,
+    );
+    draw_text(
+        &format!("nesting levels: {}", levels),
+        PAD,
+        screen_height() - PAD - 2.0 * FONT_SIZE,
         FONT_SIZE,
         BLACK,
     );
@@ -130,7 +163,7 @@ fn draw_nested(
             } else {
                 color
             };
-            let nested_pos = nest_pos(circle, *circle_1, scale * 0.25);
+            let nested_pos = nest_pos(circle, *circle_1, scale * 0.5);
             draw_nested(
                 level - 1,
                 circles,
@@ -184,7 +217,7 @@ fn pos_in_editor((x, y): (f32, f32)) -> Option<NormalizedPosition> {
     };
 }
 fn nest_pos(pos: Vec2, nested_pos: Vec2, scale: f32) -> Vec2 {
-    pos + nested_pos * scale
+    pos + (nested_pos * scale).rotate(pos.normalize())
 }
 
 fn editor_absolute_to_normalized(pos: PixelPosition) -> NormalizedPosition {
