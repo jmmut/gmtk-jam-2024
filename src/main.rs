@@ -7,7 +7,7 @@ type PixelPosition = Vec2;
 type AnyError = Box<dyn std::error::Error>;
 
 const PAD: Pixels = 20.0;
-const EDITOR_SIZE: Pixels = 100.0;
+const EDITOR_SIZE: Pixels = 200.0;
 const FONT_SIZE: Pixels = 16.0;
 const THICKNESS: Pixels = 2.0;
 const RADIUS: Pixels = 10.0;
@@ -42,23 +42,65 @@ async fn main() {
         clear_background(DARKGRAY);
         draw_rectangle_lines(PAD, PAD, EDITOR_SIZE, EDITOR_SIZE, THICKNESS, LIGHTGRAY);
 
-        if root_ui().button(Vec2::new(PAD, screen_height() * 0.5), " + ") {
-            state.levels += 1;
-        }
-        if state.levels > 0
-            && root_ui().button(
-                Vec2::new(PAD * 2.0 + FONT_SIZE, screen_height() * 0.5),
-                " - ",
-            )
-        {
-            state.levels -= 1;
-        }
+        draw_buttons(&mut state);
         edit_circles(&mut state);
-
-        draw_circles(&state);
-
+        let drawn = draw_circles(&state);
+        draw_stats(&mut state, &drawn);
         next_frame().await
     }
+}
+
+fn draw_buttons(state: &mut State) {
+    if root_ui().button(Vec2::new(PAD, screen_height() * 0.5), " + ") {
+        state.levels += 1;
+    }
+    if state.levels > 0
+        && root_ui().button(
+        Vec2::new(PAD * 2.0 + FONT_SIZE, screen_height() * 0.5),
+        " - ",
+    )
+    {
+        state.levels -= 1;
+    }
+}
+
+fn draw_stats(state: &mut State, drawn: &i32) {
+    draw_text(
+        &format!("points drawn: {}", drawn),
+        PAD,
+        screen_height() - PAD - FONT_SIZE,
+        FONT_SIZE,
+        BLACK,
+    );
+    draw_text(
+        &format!("nesting levels: {}", state.levels),
+        PAD,
+        screen_height() - PAD - 2.0 * FONT_SIZE,
+        FONT_SIZE,
+        BLACK,
+    );
+    let score = compute_score(&state);
+    draw_text(
+        &format!("score: {}", score),
+        PAD,
+        screen_height() - PAD - 3.0 * FONT_SIZE,
+        FONT_SIZE,
+        BLACK,
+    );
+
+}
+
+fn compute_score(state: &State) -> f32 {
+    let mut score = 0.0;
+    for (i, circle) in state.circles.iter().enumerate() {
+        for (j, circle_2) in state.circles.iter().enumerate() {
+            if j > i {
+                let diff = *circle - *circle_2;
+                score += diff.length()
+            }
+        }
+    }
+    score * state.levels as f32
 }
 
 fn edit_circles(
@@ -109,7 +151,7 @@ fn draw_circles(
         selected,
         levels,
     }: &State,
-) {
+) -> i32 {
     let mut drawn = 0;
     let mut too_many = false;
     for (i, circle) in circles.iter().enumerate() {
@@ -139,20 +181,7 @@ fn draw_circles(
             }
         }
     }
-    draw_text(
-        &format!("points drawn: {}", drawn),
-        PAD,
-        screen_height() - PAD - FONT_SIZE,
-        FONT_SIZE,
-        BLACK,
-    );
-    draw_text(
-        &format!("nesting levels: {}", levels),
-        PAD,
-        screen_height() - PAD - 2.0 * FONT_SIZE,
-        FONT_SIZE,
-        BLACK,
-    );
+    drawn
 }
 
 #[derive(Copy, Clone)]
