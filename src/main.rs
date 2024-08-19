@@ -122,11 +122,11 @@ fn draw_circles(
         if too_many {
             color = WHITE
         }
-        let absolute_pos = normalized_to_editor_absolute(*circle);
+        let editor_pos = normalized_to_editor_absolute(*circle);
         if same(*selected, i) {
-            draw_circle(absolute_pos.x, absolute_pos.y, RADIUS, color);
+            draw_circle(editor_pos.x, editor_pos.y, RADIUS, color);
         } else {
-            draw_circle_lines(absolute_pos.x, absolute_pos.y, RADIUS, THICKNESS, color);
+            draw_circle_lines(editor_pos.x, editor_pos.y, RADIUS, THICKNESS, color);
         }
 
         if !too_many {
@@ -157,26 +157,26 @@ fn draw_nested(
     level: i32,
     circles: &Vec<NormalizedPosition>,
     selected: &Option<usize>,
-    scale: f32,
+    mut scale: f32,
     circle: NormalizedPosition,
     color: Color,
     drawn: &mut i32,
 ) -> Result<(), AnyError> {
-    if level == 0 {
-        let absolute_pos_1 = normalized_to_canvas_absolute(circle);
-        draw_circle(absolute_pos_1.x, absolute_pos_1.y, RADIUS, color);
-        *drawn += 1;
-        if *drawn > MAX_DRAWN {
-            return Err("drawing more circles might freeze your computer".into());
-        }
-    } else {
+    let absolute_pos_1 = normalized_to_canvas_absolute(circle);
+    draw_circle(absolute_pos_1.x, absolute_pos_1.y, RADIUS, color);
+    *drawn += 1;
+    if *drawn > MAX_DRAWN {
+        return Err("drawing more circles might freeze your computer".into());
+    }
+    if level > 0 {
+        scale = scale * 0.5;
         for (i_1, circle_1) in circles.iter().enumerate() {
             let color2 = if same(*selected, i_1) {
                 STRONG_CIRCLE_COLOR
             } else {
                 color
             };
-            let nested_pos = nest_pos(circle, *circle_1, scale * 0.5);
+            let nested_pos = nest_pos(circle, *circle_1, scale);
             draw_nested(
                 level - 1,
                 circles,
