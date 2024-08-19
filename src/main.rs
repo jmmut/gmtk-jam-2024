@@ -110,7 +110,6 @@ fn draw_circles(
         levels,
     }: &State,
 ) {
-    let scale = 1.0;
     let mut drawn = 0;
     let mut too_many = false;
     for (i, circle) in circles.iter().enumerate() {
@@ -130,15 +129,18 @@ fn draw_circles(
         }
 
         if !too_many {
-            if let Err(_) = draw_nested(
-                *levels, circles, selected, scale, *circle, color, &mut drawn,
-            ) {
+            let recursion = Recursion {
+                level: *levels,
+                scale: 1.0,
+                radius: RADIUS,
+            };
+            if let Err(_) = draw_nested(recursion, circles, selected, *circle, color, &mut drawn) {
                 too_many = true;
             }
         }
     }
     draw_text(
-        &format!("circles drawn: {}", drawn),
+        &format!("points drawn: {}", drawn),
         PAD,
         screen_height() - PAD - FONT_SIZE,
         FONT_SIZE,
@@ -153,39 +155,52 @@ fn draw_circles(
     );
 }
 
-fn draw_nested(
+#[derive(Copy, Clone)]
+struct Recursion {
     level: i32,
+    scale: f32,
+    radius: f32,
+}
+impl Recursion {
+    fn reduce(&mut self) {
+        self.level -= 1;
+        self.scale *= 0.5;
+        self.radius *= 0.75;
+    }
+    fn should_continue(&self) -> bool {
+        self.level > 0
+    }
+}
+
+fn draw_nested(
+    mut recursion: Recursion,
     circles: &Vec<NormalizedPosition>,
     selected: &Option<usize>,
-    mut scale: f32,
     circle: NormalizedPosition,
     color: Color,
     drawn: &mut i32,
 ) -> Result<(), AnyError> {
-    let absolute_pos_1 = normalized_to_canvas_absolute(circle);
-    draw_circle(absolute_pos_1.x, absolute_pos_1.y, RADIUS, color);
+    recursion.reduce();
+    let absolute_pos = normalized_to_canvas_absolute(circle);
+    if recursion.should_continue() {
+        draw_circle(absolute_pos.x, absolute_pos.y, recursion.radius, color);
+    } else {
+        let side = recursion.radius * 1.5;
+        draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, color);
+    }
     *drawn += 1;
     if *drawn > MAX_DRAWN {
         return Err("drawing more circles might freeze your computer".into());
     }
-    if level > 0 {
-        scale = scale * 0.5;
+    if recursion.should_continue() {
         for (i_1, circle_1) in circles.iter().enumerate() {
             let color2 = if same(*selected, i_1) {
                 STRONG_CIRCLE_COLOR
             } else {
                 color
             };
-            let nested_pos = nest_pos(circle, *circle_1, scale);
-            draw_nested(
-                level - 1,
-                circles,
-                selected,
-                scale,
-                nested_pos,
-                color2,
-                drawn,
-            )?;
+            let nested_pos = nest_pos(circle, *circle_1, recursion.scale);
+            draw_nested(recursion, circles, selected, nested_pos, color2, drawn)?;
         }
     }
     Ok(())
@@ -242,7 +257,7 @@ fn normalized_to_editor_absolute(pos: NormalizedPosition) -> PixelPosition {
 }
 fn normalized_to_canvas_absolute(pos: NormalizedPosition) -> PixelPosition {
     let sw = screen_width();
-    let canvas_x = 0.4 * (screen_width() - 4.0 * PAD - EDITOR_SIZE);
+    let canvas_x = 0.3 * (screen_width() - 4.0 * PAD - EDITOR_SIZE);
     let canvas_y = canvas_x;
-    return Vec2::new(pos.x * canvas_x + sw * 0.4, pos.y * canvas_y + PAD);
+    return Vec2::new(pos.x * canvas_x + sw * 0.4, pos.y * canvas_y + sw * 0.15);
 }
