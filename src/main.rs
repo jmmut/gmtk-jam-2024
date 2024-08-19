@@ -24,70 +24,79 @@ async fn main() {
         clear_background(DARKGRAY);
         draw_rectangle_lines(PAD, PAD, EDITOR_SIZE, EDITOR_SIZE, THICKNESS, LIGHTGRAY);
 
-        let mouse_pos = mouse_position();
-        if let Some(pos) = pos_in_editor(mouse_pos) {
-            let mut absolute_pos = normalized_to_editor_absolute(pos);
-            if is_mouse_button_pressed(MouseButton::Left) {
-                if let Some(selected_pos) = maybe_take(pos, &mut circles) {
-                    absolute_pos = normalized_to_editor_absolute(pos);
-                    selected = None;
-                }
-            }
-            if is_mouse_button_down(MouseButton::Left) {
-                draw_circle_lines(
-                    absolute_pos.x,
-                    absolute_pos.y,
-                    RADIUS,
-                    THICKNESS,
-                    STRONG_CIRCLE_COLOR,
-                );
-            } else if is_mouse_button_released(MouseButton::Left) {
-                circles.push(pos);
-            } else {
-                if let Some(selected_) = inside_circle(pos, &circles) {
-                    selected = Some(selected_);
-                } else {
-                    selected = None;
-                    draw_circle_lines(
-                        absolute_pos.x,
-                        absolute_pos.y,
-                        RADIUS,
-                        THICKNESS,
-                        FAINT_CIRCLE_COLOR,
-                    );
-                }
-            };
-        }
-        let scale = 1.0;
-        for (i, circle) in circles.iter().enumerate() {
-            let absolute_pos = normalized_to_editor_absolute(*circle);
-            if same(selected, i) {
-                draw_circle(absolute_pos.x, absolute_pos.y, RADIUS, SETTLED_CIRCLE_COLOR);
-            } else {
-                draw_circle_lines(
-                    absolute_pos.x,
-                    absolute_pos.y,
-                    RADIUS,
-                    THICKNESS,
-                    SETTLED_CIRCLE_COLOR,
-                );
-            }
+        edit_circles(&mut circles, &mut selected);
 
-            let absolute_pos = normalized_to_canvas_absolute(*circle);
-
-            for circle_1 in &circles {
-                let nested_pos = nest_pos(*circle, *circle_1, scale * 0.5);
-                let absolute_pos_1 = normalized_to_canvas_absolute(nested_pos);
-                draw_circle(
-                    absolute_pos_1.x,
-                    absolute_pos_1.y,
-                    RADIUS,
-                    SETTLED_CIRCLE_COLOR,
-                );
-            }
-        }
+        draw_circles(&circles, selected);
 
         next_frame().await
+    }
+}
+
+fn edit_circles(mut circles: &mut Vec<NormalizedPosition>, selected: &mut Option<usize>) {
+    let mouse_pos = mouse_position();
+    if let Some(pos) = pos_in_editor(mouse_pos) {
+        let mut absolute_pos = normalized_to_editor_absolute(pos);
+        if is_mouse_button_pressed(MouseButton::Left) {
+            if let Some(selected_pos) = maybe_take(pos, &mut circles) {
+                absolute_pos = normalized_to_editor_absolute(pos);
+                *selected = None;
+            }
+        }
+        if is_mouse_button_down(MouseButton::Left) {
+            draw_circle_lines(
+                absolute_pos.x,
+                absolute_pos.y,
+                RADIUS,
+                THICKNESS,
+                STRONG_CIRCLE_COLOR,
+            );
+        } else if is_mouse_button_released(MouseButton::Left) {
+            circles.push(pos);
+        } else {
+            if let Some(selected_) = inside_circle(pos, &circles) {
+                *selected = Some(selected_);
+            } else {
+                *selected = None;
+                draw_circle_lines(
+                    absolute_pos.x,
+                    absolute_pos.y,
+                    RADIUS,
+                    THICKNESS,
+                    FAINT_CIRCLE_COLOR,
+                );
+            }
+        };
+    }
+}
+
+fn draw_circles(circles: &Vec<NormalizedPosition>, selected: Option<usize>) {
+    let scale = 1.0;
+    for (i, circle) in circles.iter().enumerate() {
+        let absolute_pos = normalized_to_editor_absolute(*circle);
+        if same(selected, i) {
+            draw_circle(absolute_pos.x, absolute_pos.y, RADIUS, SETTLED_CIRCLE_COLOR);
+        } else {
+            draw_circle_lines(
+                absolute_pos.x,
+                absolute_pos.y,
+                RADIUS,
+                THICKNESS,
+                SETTLED_CIRCLE_COLOR,
+            );
+        }
+
+        let absolute_pos = normalized_to_canvas_absolute(*circle);
+
+        for circle_1 in circles {
+            let nested_pos = nest_pos(*circle, *circle_1, scale * 0.5);
+            let absolute_pos_1 = normalized_to_canvas_absolute(nested_pos);
+            draw_circle(
+                absolute_pos_1.x,
+                absolute_pos_1.y,
+                RADIUS,
+                SETTLED_CIRCLE_COLOR,
+            );
+        }
     }
 }
 
