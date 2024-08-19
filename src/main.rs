@@ -6,8 +6,9 @@ type PixelPosition = Vec2;
 
 const PAD: Pixels = 20.0;
 const EDITOR_SIZE: Pixels = 100.0;
-const THICKNESS: f32 = 2.0;
-const RADIUS: f32 = 10.0;
+const FONT_SIZE: Pixels = 16.0;
+const THICKNESS: Pixels = 2.0;
+const RADIUS: Pixels = 10.0;
 
 const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
 const STRONG_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.7);
@@ -84,6 +85,7 @@ fn edit_circles(State { circles, selected }: &mut State) {
 
 fn draw_circles(State { circles, selected }: &State) {
     let scale = 1.0;
+    let mut drawn = 0;
     for (i, circle) in circles.iter().enumerate() {
         let mut color = if same(*selected, i) {
             STRONG_CIRCLE_COLOR
@@ -97,26 +99,48 @@ fn draw_circles(State { circles, selected }: &State) {
             draw_circle_lines(absolute_pos.x, absolute_pos.y, RADIUS, THICKNESS, color);
         }
 
-        let absolute_pos = normalized_to_canvas_absolute(*circle);
-
-        draw_nested(1, circles, selected, scale, *circle, color);
+        draw_nested(2, circles, selected, scale, *circle, color, &mut drawn);
     }
+    draw_text(
+        &format!("circles drawn: {}", drawn),
+        PAD,
+        screen_height() - PAD - FONT_SIZE,
+        FONT_SIZE,
+        BLACK,
+    );
 }
 
-fn draw_nested(level: i32, circles: &Vec<NormalizedPosition>, selected: &Option<usize>, scale: f32, circle: NormalizedPosition, color: Color) {
+fn draw_nested(
+    level: i32,
+    circles: &Vec<NormalizedPosition>,
+    selected: &Option<usize>,
+    scale: f32,
+    circle: NormalizedPosition,
+    color: Color,
+    drawn: &mut i32,
+) {
     if level == 0 {
         let absolute_pos_1 = normalized_to_canvas_absolute(circle);
         draw_circle(absolute_pos_1.x, absolute_pos_1.y, RADIUS, color);
-        return;
-    }
-    for (i_1, circle_1) in circles.iter().enumerate() {
-        let color2 = if same(*selected, i_1) {
-            STRONG_CIRCLE_COLOR
-        } else {
-            color
-        };
-        let nested_pos = nest_pos(circle, *circle_1, scale * 0.5);
-        draw_nested(level -1, circles, selected, scale, nested_pos, color2);
+        *drawn += 1;
+    } else {
+        for (i_1, circle_1) in circles.iter().enumerate() {
+            let color2 = if same(*selected, i_1) {
+                STRONG_CIRCLE_COLOR
+            } else {
+                color
+            };
+            let nested_pos = nest_pos(circle, *circle_1, scale * 0.25);
+            draw_nested(
+                level - 1,
+                circles,
+                selected,
+                scale,
+                nested_pos,
+                color2,
+                drawn,
+            );
+        }
     }
 }
 
