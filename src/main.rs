@@ -4,12 +4,14 @@ use macroquad::ui::root_ui;
 type Pixels = f32;
 type NormalizedPosition = Vec2;
 type PixelPosition = Vec2;
+type AnyError = Box<dyn std::error::Error>;
 
 const PAD: Pixels = 20.0;
 const EDITOR_SIZE: Pixels = 100.0;
 const FONT_SIZE: Pixels = 16.0;
 const THICKNESS: Pixels = 2.0;
 const RADIUS: Pixels = 10.0;
+const MAX_DRAWN: i32 = 16000;
 
 const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
 const STRONG_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.7);
@@ -110,12 +112,16 @@ fn draw_circles(
 ) {
     let scale = 1.0;
     let mut drawn = 0;
+    let mut too_many = false;
     for (i, circle) in circles.iter().enumerate() {
         let mut color = if same(*selected, i) {
             STRONG_CIRCLE_COLOR
         } else {
             SETTLED_CIRCLE_COLOR
         };
+        if too_many {
+            color = WHITE
+        }
         let absolute_pos = normalized_to_editor_absolute(*circle);
         if same(*selected, i) {
             draw_circle(absolute_pos.x, absolute_pos.y, RADIUS, color);
@@ -123,9 +129,13 @@ fn draw_circles(
             draw_circle_lines(absolute_pos.x, absolute_pos.y, RADIUS, THICKNESS, color);
         }
 
-        draw_nested(
-            *levels, circles, selected, scale, *circle, color, &mut drawn,
-        );
+        if !too_many {
+            if let Err(_) = draw_nested(
+                *levels, circles, selected, scale, *circle, color, &mut drawn,
+            ) {
+                too_many = true;
+            }
+        }
     }
     draw_text(
         &format!("circles drawn: {}", drawn),
@@ -151,11 +161,14 @@ fn draw_nested(
     circle: NormalizedPosition,
     color: Color,
     drawn: &mut i32,
-) {
+) -> Result<(), AnyError> {
     if level == 0 {
         let absolute_pos_1 = normalized_to_canvas_absolute(circle);
         draw_circle(absolute_pos_1.x, absolute_pos_1.y, RADIUS, color);
         *drawn += 1;
+        if *drawn > MAX_DRAWN {
+            return Err("drawing more circles might freeze your computer".into());
+        }
     } else {
         for (i_1, circle_1) in circles.iter().enumerate() {
             let color2 = if same(*selected, i_1) {
@@ -172,9 +185,10 @@ fn draw_nested(
                 nested_pos,
                 color2,
                 drawn,
-            );
+            )?;
         }
     }
+    Ok(())
 }
 
 fn same(maybe_selected: Option<usize>, index: usize) -> bool {
