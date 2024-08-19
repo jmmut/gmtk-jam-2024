@@ -13,10 +13,22 @@ const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
 const STRONG_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.7);
 const SETTLED_CIRCLE_COLOR: Color = Color::new(0.8, 0.5, 0.2, 0.7);
 
+struct State {
+    circles: Vec<NormalizedPosition>,
+    selected: Option<usize>,
+}
+impl State {
+    pub fn new() -> Self {
+        Self {
+            circles: Vec::new(),
+            selected: None,
+        }
+    }
+}
+
 #[macroquad::main("MY_CRATE_NAME")]
 async fn main() {
-    let mut circles = Vec::<NormalizedPosition>::new();
-    let mut selected = None;
+    let mut state = State::new();
     loop {
         if is_key_pressed(KeyCode::Escape) {
             break;
@@ -24,56 +36,60 @@ async fn main() {
         clear_background(DARKGRAY);
         draw_rectangle_lines(PAD, PAD, EDITOR_SIZE, EDITOR_SIZE, THICKNESS, LIGHTGRAY);
 
-        edit_circles(&mut circles, &mut selected);
+        edit_circles(&mut state);
 
-        draw_circles(&circles, selected);
+        draw_circles(&state);
 
         next_frame().await
     }
 }
 
-fn edit_circles(mut circles: &mut Vec<NormalizedPosition>, selected: &mut Option<usize>) {
+fn edit_circles(State { circles, selected }: &mut State) {
     let mouse_pos = mouse_position();
     if let Some(pos) = pos_in_editor(mouse_pos) {
         let mut absolute_pos = normalized_to_editor_absolute(pos);
         if is_mouse_button_pressed(MouseButton::Left) {
-            if let Some(selected_pos) = maybe_take(pos, &mut circles) {
-                absolute_pos = normalized_to_editor_absolute(pos);
-                *selected = None;
+            if let Some(selected_) = inside_circle(pos, &circles) {
+                circles[selected_] = pos;
+                *selected = Some(selected_);
+            } else {
+                circles.push(pos);
+                *selected = Some(circles.len() - 1);
             }
         }
         if is_mouse_button_down(MouseButton::Left) {
-            draw_circle_lines(
-                absolute_pos.x,
-                absolute_pos.y,
-                RADIUS,
-                THICKNESS,
-                STRONG_CIRCLE_COLOR,
-            );
-        } else if is_mouse_button_released(MouseButton::Left) {
-            circles.push(pos);
-        } else {
-            if let Some(selected_) = inside_circle(pos, &circles) {
-                *selected = Some(selected_);
-            } else {
-                *selected = None;
-                draw_circle_lines(
-                    absolute_pos.x,
-                    absolute_pos.y,
-                    RADIUS,
-                    THICKNESS,
-                    FAINT_CIRCLE_COLOR,
-                );
+            if let Some(selected_) = selected {
+                circles[*selected_] = pos;
             }
-        };
+        }
+        if is_mouse_button_released(MouseButton::Left) {
+            *selected = None;
+            // } else {
+            //         *selected = None;
+            //         draw_circle_lines(
+            //             absolute_pos.x,
+            //             absolute_pos.y,
+            //             RADIUS,
+            //             THICKNESS,
+            //             FAINT_CIRCLE_COLOR,
+            //         );
+            //     }
+        }
+    } else {
+        if is_mouse_button_released(MouseButton::Left) {
+            if let Some(selected_) = selected {
+                circles.swap_remove(*selected_);
+                *selected = None;
+            }
+        }
     }
 }
 
-fn draw_circles(circles: &Vec<NormalizedPosition>, selected: Option<usize>) {
+fn draw_circles(State { circles, selected }: &State) {
     let scale = 1.0;
     for (i, circle) in circles.iter().enumerate() {
         let absolute_pos = normalized_to_editor_absolute(*circle);
-        if same(selected, i) {
+        if same(*selected, i) {
             draw_circle(absolute_pos.x, absolute_pos.y, RADIUS, SETTLED_CIRCLE_COLOR);
         } else {
             draw_circle_lines(
