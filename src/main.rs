@@ -35,6 +35,7 @@ async fn main() {
                 draw_circle_lines(absolute_pos.x, absolute_pos.y, 10.0, THICKNESS, color);
             }
         }
+        let scale = 1.0;
         for circle in &circles {
             let absolute_pos = normalized_to_editor_absolute(*circle);
             draw_circle_lines(
@@ -46,7 +47,17 @@ async fn main() {
             );
 
             let absolute_pos = normalized_to_canvas_absolute(*circle);
-            draw_circle(absolute_pos.x, absolute_pos.y, RADIUS, SETTLED_CIRCLE_COLOR);
+
+            for circle_1 in &circles {
+                let nested_pos = nest_pos(*circle, *circle_1, scale * 0.5);
+                let absolute_pos_1 = normalized_to_canvas_absolute(nested_pos);
+                draw_circle(
+                    absolute_pos_1.x,
+                    absolute_pos_1.y,
+                    RADIUS,
+                    SETTLED_CIRCLE_COLOR,
+                );
+            }
         }
 
         next_frame().await
@@ -61,6 +72,10 @@ fn pos_in_editor((x, y): (f32, f32)) -> Option<Vec2> {
     };
 }
 
+fn nest_pos(pos: Vec2, nested_pos: Vec2, scale: f32) -> Vec2 {
+    pos + nested_pos * scale
+}
+
 fn editor_absolute_to_normalized(pos: Vec2) -> Vec2 {
     return Vec2::new((pos.x - PAD) / EDITOR_SIZE, (pos.y - PAD) / EDITOR_SIZE);
 }
@@ -68,8 +83,8 @@ fn normalized_to_editor_absolute(pos: Vec2) -> Vec2 {
     return Vec2::new(pos.x * EDITOR_SIZE + PAD, pos.y * EDITOR_SIZE + PAD);
 }
 fn normalized_to_canvas_absolute(pos: Vec2) -> Vec2 {
-    let canvas_x = screen_width() - 4.0 * PAD - EDITOR_SIZE;
-    let canvas_y = screen_height() - 2.0 * PAD;
+    let canvas_x = 0.5 * (screen_width() - 4.0 * PAD - EDITOR_SIZE);
+    let canvas_y = 0.5 * (screen_height() - 2.0 * PAD);
     return Vec2::new(
         pos.x * canvas_x + 3.0 * PAD + EDITOR_SIZE,
         pos.y * canvas_y + PAD,
