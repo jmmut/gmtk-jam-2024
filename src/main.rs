@@ -241,10 +241,8 @@ fn normalized_to_editor_absolute(pos: NormalizedPosition) -> PixelPosition {
     return Vec2::new(pos.x * EDITOR_SIZE + PAD, pos.y * EDITOR_SIZE + PAD);
 }
 fn normalized_to_canvas_absolute(pos: NormalizedPosition) -> PixelPosition {
-    let canvas_x = 0.5 * (screen_width() - 4.0 * PAD - EDITOR_SIZE);
-    let canvas_y = 0.5 * (screen_height() - 2.0 * PAD);
-    return Vec2::new(
-        pos.x * canvas_x + 3.0 * PAD + EDITOR_SIZE,
-        pos.y * canvas_y + PAD,
-    );
+    let sw = screen_width();
+    let canvas_x = 0.4 * (screen_width() - 4.0 * PAD - EDITOR_SIZE);
+    let canvas_y = canvas_x;
+    return Vec2::new(pos.x * canvas_x + sw * 0.4, pos.y * canvas_y + PAD);
 }
