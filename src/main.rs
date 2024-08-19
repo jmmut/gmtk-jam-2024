@@ -99,16 +99,24 @@ fn draw_circles(State { circles, selected }: &State) {
 
         let absolute_pos = normalized_to_canvas_absolute(*circle);
 
-        for (i_1, circle_1) in circles.iter().enumerate() {
-            let color2 = if same(*selected, i_1) {
-                STRONG_CIRCLE_COLOR
-            } else {
-                color
-            };
-            let nested_pos = nest_pos(*circle, *circle_1, scale * 0.5);
-            let absolute_pos_1 = normalized_to_canvas_absolute(nested_pos);
-            draw_circle(absolute_pos_1.x, absolute_pos_1.y, RADIUS, color2);
-        }
+        draw_nested(1, circles, selected, scale, *circle, color);
+    }
+}
+
+fn draw_nested(level: i32, circles: &Vec<NormalizedPosition>, selected: &Option<usize>, scale: f32, circle: NormalizedPosition, color: Color) {
+    if level == 0 {
+        let absolute_pos_1 = normalized_to_canvas_absolute(circle);
+        draw_circle(absolute_pos_1.x, absolute_pos_1.y, RADIUS, color);
+        return;
+    }
+    for (i_1, circle_1) in circles.iter().enumerate() {
+        let color2 = if same(*selected, i_1) {
+            STRONG_CIRCLE_COLOR
+        } else {
+            color
+        };
+        let nested_pos = nest_pos(circle, *circle_1, scale * 0.5);
+        draw_nested(level -1, circles, selected, scale, nested_pos, color2);
     }
 }
 
