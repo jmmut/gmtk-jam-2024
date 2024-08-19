@@ -11,7 +11,7 @@ const EDITOR_SIZE: Pixels = 200.0;
 const FONT_SIZE: Pixels = 16.0;
 const THICKNESS: Pixels = 2.0;
 const RADIUS: Pixels = 10.0;
-const MAX_DRAWN: i32 = 16000;
+const MAX_DRAWN: i32 = 100000;
 
 const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
 const STRONG_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.7);
@@ -199,6 +199,12 @@ impl Recursion {
     fn should_continue(&self) -> bool {
         self.level > 0
     }
+    fn color(&self, color: Color) -> Color {
+        let mut new_color = color;
+        new_color.r = (color.r - self.level as f32 * 0.02).max(0.0);
+        // new_color.b = (color.b + self.level as f32 * 0.05).max(0.0);
+        new_color
+    }
 }
 
 fn draw_nested(
@@ -211,11 +217,14 @@ fn draw_nested(
 ) -> Result<(), AnyError> {
     recursion.reduce();
     let absolute_pos = normalized_to_canvas_absolute(circle);
+    let side = recursion.radius * 1.5;
+    let drawing_color = recursion.color(color);
     if recursion.should_continue() {
-        draw_circle(absolute_pos.x, absolute_pos.y, recursion.radius, color);
+
+        // draw_circle(absolute_pos.x, absolute_pos.y, recursion.radius, drawing_color);
+        draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, drawing_color);
     } else {
-        let side = recursion.radius * 1.5;
-        draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, color);
+        draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, drawing_color);
     }
     *drawn += 1;
     if *drawn > MAX_DRAWN {
