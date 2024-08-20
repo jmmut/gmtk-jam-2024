@@ -147,6 +147,14 @@ fn draw_instructions() -> PixelPosition {
         LIGHTGRAY,
     );
     y += FONT_SIZE;
+    draw_text(
+        &"Set your own goals, e.g. try to reach an accumulated score of 1000.",
+        x,
+        y,
+        FONT_SIZE,
+        LIGHTGRAY,
+    );
+    y += FONT_SIZE;
     return Vec2::new(x, y);
 }
 
@@ -205,6 +213,13 @@ fn draw_stats(state: &mut State, drawn: &i32) {
         &format!("score: {}", score),
         PAD,
         screen_height() * 0.5 + 2.0 * line_height,
+        FONT_SIZE,
+        LIGHTGRAY,
+    );
+    draw_text(
+        &format!("accumulated score: {}", state.accumulated_score),
+        PAD,
+        screen_height() * 0.5 + 3.0 * line_height,
         FONT_SIZE,
         LIGHTGRAY,
     );
