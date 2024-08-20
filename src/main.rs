@@ -11,8 +11,20 @@ const EDITOR_SIZE: Pixels = 200.0;
 const FONT_SIZE: Pixels = 16.0;
 const THICKNESS: Pixels = 2.0;
 const RADIUS: Pixels = 10.0;
+
 const MAX_DRAWN: i32 = 100000;
-const ARENA: Rect = Rect {x: 0.0, y: 0.0, w: 0.5, h:0.5};
+const EDITOR: Rect = Rect {
+    x: PAD,
+    y: PAD + FONT_SIZE * 2.0,
+    w: EDITOR_SIZE,
+    h: EDITOR_SIZE,
+};
+const ARENA: Rect = Rect {
+    x: 0.0,
+    y: 0.0,
+    w: 0.5,
+    h: 0.5,
+};
 
 const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
 const STRONG_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.7);
@@ -22,6 +34,7 @@ struct State {
     circles: Vec<NormalizedPosition>,
     selected: Option<usize>,
     levels: i32,
+    targets: Vec<NormalizedPosition>,
 }
 impl State {
     pub fn new() -> Self {
@@ -29,6 +42,7 @@ impl State {
             circles: Vec::new(),
             selected: None,
             levels: 1,
+            targets: Vec::new(),
         }
     }
 }
@@ -41,57 +55,102 @@ async fn main() {
             break;
         }
         clear_background(DARKGRAY);
-        draw_rectangle_lines(PAD, PAD, EDITOR_SIZE, EDITOR_SIZE, THICKNESS, LIGHTGRAY);
+
+        draw_editor();
+        draw_instructions();
 
         draw_buttons(&mut state);
         edit_circles(&mut state);
         let drawn = draw_circles(&state);
         draw_stats(&mut state, &drawn);
-        let Vec2 { x, y } = normalized_to_canvas_absolute(ARENA.point());
-        let Vec2 { x: w, y: h } = normalized_to_canvas_absolute(ARENA.size());
-        draw_rectangle_lines(x * 0.5, y, w, h, 2.0, BLACK);
+        draw_arena(calculate_arena(ARENA));
         next_frame().await
     }
 }
 
+fn draw_editor() {
+    draw_text(&"Editor:", PAD, PAD + FONT_SIZE, FONT_SIZE, LIGHTGRAY);
+    draw_rectangle_lines(EDITOR.x, EDITOR.y, EDITOR.w, EDITOR.h, THICKNESS, LIGHTGRAY);
+}
+fn draw_instructions() {
+    let x = PAD * 4.0 + EDITOR_SIZE;
+    draw_text(
+        &"Click in the editor on the left to add points.",
+        x,
+        PAD + FONT_SIZE * 1.0,
+        FONT_SIZE,
+        LIGHTGRAY,
+    );
+    draw_text(
+        &"Increase the nesting levels to create more points.",
+        x,
+        PAD + FONT_SIZE * 2.0,
+        FONT_SIZE,
+        LIGHTGRAY,
+    );
+    draw_text(
+        &"Move your points to avoid touching the blue targets.",
+        x,
+        PAD + FONT_SIZE * 3.0,
+        FONT_SIZE,
+        LIGHTGRAY,
+    );
+}
+
+fn calculate_arena(normalized: Rect) -> Rect {
+    let Vec2 { x, y } = normalized_to_canvas_absolute(normalized.point());
+    let Vec2 { x: w, y: h } = normalized_to_canvas_absolute(normalized.size());
+    Rect::new(x * 0.5, y, w, h)
+}
+fn draw_arena(arena: Rect) {
+    draw_rectangle_lines(arena.x, arena.y, arena.w, arena.h, 2.0, BLACK);
+}
+
 fn draw_buttons(state: &mut State) {
-    if root_ui().button(Vec2::new(PAD, screen_height() * 0.5), " + ") {
+    let text_width = FONT_SIZE * 8.5;
+    if root_ui().button(
+        Vec2::new(PAD + text_width, screen_height() * 0.5 - FONT_SIZE),
+        " + ",
+    ) {
         state.levels += 1;
     }
     if state.levels > 0
         && root_ui().button(
-        Vec2::new(PAD * 2.0 + FONT_SIZE, screen_height() * 0.5),
-        " - ",
-    )
+            Vec2::new(
+                PAD * 2.0 + FONT_SIZE + text_width,
+                screen_height() * 0.5 - FONT_SIZE,
+            ),
+            " - ",
+        )
     {
         state.levels -= 1;
     }
 }
 
 fn draw_stats(state: &mut State, drawn: &i32) {
-    draw_text(
-        &format!("points drawn: {}", drawn),
-        PAD,
-        screen_height() - PAD - FONT_SIZE,
-        FONT_SIZE,
-        BLACK,
-    );
+    let line_height = 1.5 * FONT_SIZE;
     draw_text(
         &format!("nesting levels: {}", state.levels),
         PAD,
-        screen_height() - PAD - 2.0 * FONT_SIZE,
+        screen_height() * 0.5,
         FONT_SIZE,
-        BLACK,
+        LIGHTGRAY,
+    );
+    draw_text(
+        &format!("points drawn: {}", drawn),
+        PAD,
+        screen_height() * 0.5 + line_height,
+        FONT_SIZE,
+        LIGHTGRAY,
     );
     let score = compute_score(&state);
     draw_text(
         &format!("score: {}", score),
         PAD,
-        screen_height() - PAD - 3.0 * FONT_SIZE,
+        screen_height() * 0.5 + 2.0 * line_height,
         FONT_SIZE,
-        BLACK,
+        LIGHTGRAY,
     );
-
 }
 
 fn compute_score(state: &State) -> f32 {
@@ -154,6 +213,7 @@ fn draw_circles(
         circles,
         selected,
         levels,
+        ..
     }: &State,
 ) -> i32 {
     let mut drawn = 0;
@@ -180,7 +240,15 @@ fn draw_circles(
                 scale: 1.0,
                 radius: RADIUS,
             };
-            if let Err(_) = draw_nested(recursion, circles, selected, Vec2::default(),  *circle, color, &mut drawn) {
+            if let Err(_) = draw_nested(
+                recursion,
+                circles,
+                selected,
+                Vec2::default(),
+                *circle,
+                color,
+                &mut drawn,
+            ) {
                 too_many = true;
             }
         }
@@ -225,7 +293,14 @@ fn draw_nested(
     let absolute_pos_ref = normalized_to_canvas_absolute(reference);
     let side = recursion.radius * 1.5;
     let drawing_color = recursion.color(color);
-        draw_line(absolute_pos_ref.x, absolute_pos_ref.y, absolute_pos.x, absolute_pos.y, 1.0, color);
+    draw_line(
+        absolute_pos_ref.x,
+        absolute_pos_ref.y,
+        absolute_pos.x,
+        absolute_pos.y,
+        1.0,
+        color,
+    );
     if recursion.should_continue() {
 
         // draw_circle(absolute_pos.x, absolute_pos.y, recursion.radius, drawing_color);
@@ -245,7 +320,9 @@ fn draw_nested(
                 color
             };
             let nested_pos = nest_pos(circle, *circle_1, recursion.scale);
-            draw_nested(recursion, circles, selected, circle, nested_pos, color2, drawn)?;
+            draw_nested(
+                recursion, circles, selected, circle, nested_pos, color2, drawn,
+            )?;
         }
     }
     Ok(())
@@ -284,8 +361,9 @@ fn maybe_take(
 }
 
 fn pos_in_editor((x, y): (f32, f32)) -> Option<NormalizedPosition> {
-    return if x >= PAD && x < PAD + EDITOR_SIZE && y >= PAD && y < PAD + EDITOR_SIZE {
-        Some(editor_absolute_to_normalized(Vec2::new(x, y)))
+    let point = Vec2::new(x, y);
+    return if EDITOR.contains(point) {
+        Some(editor_absolute_to_normalized(point))
     } else {
         None
     };
@@ -295,10 +373,10 @@ fn nest_pos(pos: Vec2, nested_pos: Vec2, scale: f32) -> Vec2 {
 }
 
 fn editor_absolute_to_normalized(pos: PixelPosition) -> NormalizedPosition {
-    return Vec2::new((pos.x - PAD) / EDITOR_SIZE, (pos.y - PAD) / EDITOR_SIZE);
+    return Vec2::new((pos.x - EDITOR.x) / EDITOR.w, (pos.y - EDITOR.y) / EDITOR.h);
 }
 fn normalized_to_editor_absolute(pos: NormalizedPosition) -> PixelPosition {
-    return Vec2::new(pos.x * EDITOR_SIZE + PAD, pos.y * EDITOR_SIZE + PAD);
+    return Vec2::new(pos.x * EDITOR.w + EDITOR.x, pos.y * EDITOR.h + EDITOR.y);
 }
 fn normalized_to_canvas_absolute(pos: NormalizedPosition) -> PixelPosition {
     let sw = screen_width();
