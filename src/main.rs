@@ -1,5 +1,7 @@
+use macroquad::miniquad::date::now;
 use macroquad::prelude::*;
 use macroquad::ui::root_ui;
+use macroquad::ui::widgets::Button;
 
 type Pixels = f32;
 type NormalizedPosition = Vec2;
@@ -22,8 +24,8 @@ const EDITOR: Rect = Rect {
 const ARENA: Rect = Rect {
     x: 0.0,
     y: 0.0,
-    w: 0.5,
-    h: 0.5,
+    w: 0.30,
+    h: 0.30,
 };
 
 const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
@@ -34,7 +36,8 @@ struct State {
     circles: Vec<NormalizedPosition>,
     selected: Option<usize>,
     levels: i32,
-    targets: Vec<NormalizedPosition>,
+    targets: Vec<PixelPosition>,
+    accumulated_score: f32,
 }
 impl State {
     pub fn new() -> Self {
@@ -43,6 +46,7 @@ impl State {
             selected: None,
             levels: 1,
             targets: Vec::new(),
+            accumulated_score: 0.0,
         }
     }
 }
@@ -50,60 +54,113 @@ impl State {
 #[macroquad::main("MY_CRATE_NAME")]
 async fn main() {
     let mut state = State::new();
+    let mut arena = calculate_arena(ARENA);
+    let random_target = create_random_target(now(), arena);
+    state.targets.push(random_target);
+
     loop {
         if is_key_pressed(KeyCode::Escape) {
             break;
         }
+        arena = calculate_arena(ARENA); // redo in case of window resize
         clear_background(DARKGRAY);
 
         draw_editor();
-        draw_instructions();
+        let after_instructions_pos = draw_instructions();
 
         draw_buttons(&mut state);
         edit_circles(&mut state);
-        let drawn = draw_circles(&state);
+        let (drawn, touching_targets) = draw_circles(&state);
+        maybe_create_target(&mut state, arena, after_instructions_pos, touching_targets);
         draw_stats(&mut state, &drawn);
-        draw_arena(calculate_arena(ARENA));
+        draw_arena(arena, &state);
         next_frame().await
     }
+}
+
+fn maybe_create_target(
+    state: &mut State,
+    arena: Rect,
+    after_instructions_pos: PixelPosition,
+    touching_targets: bool,
+) {
+    if !touching_targets {
+        if root_ui().button(after_instructions_pos, " Next target ") {
+            let score = compute_score(&state);
+            state.accumulated_score += score;
+            let target = create_random_target(now(), arena);
+            state.targets.push(target);
+            // println!("targets:");
+            // for target in &state.targets {
+            //     println!("{}", target);
+            // }
+        }
+    }
+    if root_ui().button(
+        after_instructions_pos + Vec2::new(FONT_SIZE * 8.0, 0.0),
+        " Restart ",
+    ) {
+        state.targets.clear();
+    }
+}
+
+fn create_random_target(ts: f64, arena: Rect) -> PixelPosition {
+    normalized_to_rect(create_random_target_normalized(ts), arena)
+}
+fn create_random_target_normalized(ts: f64) -> NormalizedPosition {
+    Vec2::new(
+        (ts.fract() * 37.0).fract().clamp(0.0, 1.0) as f32,
+        (ts.fract() * (57.0 + ts.round() % 7.0))
+            .fract()
+            .clamp(0.0, 1.0) as f32,
+    )
 }
 
 fn draw_editor() {
     draw_text(&"Editor:", PAD, PAD + FONT_SIZE, FONT_SIZE, LIGHTGRAY);
     draw_rectangle_lines(EDITOR.x, EDITOR.y, EDITOR.w, EDITOR.h, THICKNESS, LIGHTGRAY);
 }
-fn draw_instructions() {
+fn draw_instructions() -> PixelPosition {
     let x = PAD * 4.0 + EDITOR_SIZE;
+    let mut y = PAD + FONT_SIZE * 1.0;
     draw_text(
         &"Click in the editor on the left to add points.",
         x,
-        PAD + FONT_SIZE * 1.0,
+        y,
         FONT_SIZE,
         LIGHTGRAY,
     );
+    y += FONT_SIZE;
     draw_text(
         &"Increase the nesting levels to create more points.",
         x,
-        PAD + FONT_SIZE * 2.0,
+        y,
         FONT_SIZE,
         LIGHTGRAY,
     );
+    y += FONT_SIZE;
     draw_text(
         &"Move your points to avoid touching the blue targets.",
         x,
-        PAD + FONT_SIZE * 3.0,
+        y,
         FONT_SIZE,
         LIGHTGRAY,
     );
+    y += FONT_SIZE;
+    return Vec2::new(x, y);
 }
 
 fn calculate_arena(normalized: Rect) -> Rect {
     let Vec2 { x, y } = normalized_to_canvas_absolute(normalized.point());
     let Vec2 { x: w, y: h } = normalized_to_canvas_absolute(normalized.size());
-    Rect::new(x * 0.5, y, w, h)
+    Rect::new(x * 0.6, y, w, h)
 }
-fn draw_arena(arena: Rect) {
+fn draw_arena(arena: Rect, state: &State) {
     draw_rectangle_lines(arena.x, arena.y, arena.w, arena.h, 2.0, BLACK);
+    for target in &state.targets {
+        let absolute_pos = *target;
+        draw_circle(absolute_pos.x, absolute_pos.y, RADIUS, BLUE);
+    }
 }
 
 fn draw_buttons(state: &mut State) {
@@ -215,7 +272,7 @@ fn draw_circles(
         levels,
         ..
     }: &State,
-) -> i32 {
+) -> (i32, bool) {
     let mut drawn = 0;
     let mut too_many = false;
     for (i, circle) in circles.iter().enumerate() {
@@ -253,7 +310,7 @@ fn draw_circles(
             }
         }
     }
-    drawn
+    (drawn, false)
 }
 
 #[derive(Copy, Clone)]
@@ -373,10 +430,16 @@ fn nest_pos(pos: Vec2, nested_pos: Vec2, scale: f32) -> Vec2 {
 }
 
 fn editor_absolute_to_normalized(pos: PixelPosition) -> NormalizedPosition {
-    return Vec2::new((pos.x - EDITOR.x) / EDITOR.w, (pos.y - EDITOR.y) / EDITOR.h);
+    rect_to_normalized(pos, EDITOR)
 }
 fn normalized_to_editor_absolute(pos: NormalizedPosition) -> PixelPosition {
-    return Vec2::new(pos.x * EDITOR.w + EDITOR.x, pos.y * EDITOR.h + EDITOR.y);
+    normalized_to_rect(pos, EDITOR)
+}
+fn normalized_to_rect(pos: NormalizedPosition, rect: Rect) -> PixelPosition {
+    Vec2::new(pos.x * rect.w + rect.x, pos.y * rect.h + rect.y)
+}
+fn rect_to_normalized(pos: NormalizedPosition, rect: Rect) -> PixelPosition {
+    Vec2::new((pos.x - rect.x) / rect.w, (pos.y - rect.y) / rect.h)
 }
 fn normalized_to_canvas_absolute(pos: NormalizedPosition) -> PixelPosition {
     let sw = screen_width();
