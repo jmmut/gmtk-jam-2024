@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "MY_CRATE_NAME"
+name = "L-scale"
 version = "0.1.0"
 dependencies = [
  "macroquad",

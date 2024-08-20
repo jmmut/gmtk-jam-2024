@@ -51,7 +51,7 @@ impl State {
     }
 }
 
-#[macroquad::main("MY_CRATE_NAME")]
+#[macroquad::main("L-scale")]
 async fn main() {
     let mut state = State::new();
     let mut arena = calculate_arena(ARENA);
