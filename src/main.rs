@@ -8,6 +8,9 @@ type NormalizedPosition = Vec2;
 type PixelPosition = Vec2;
 type AnyError = Box<dyn std::error::Error>;
 
+const DEFAULT_WINDOW_WIDTH: i32 = 800;
+const DEFAULT_WINDOW_HEIGHT: i32 = 600;
+
 const PAD: Pixels = 20.0;
 const EDITOR_SIZE: Pixels = 200.0;
 const FONT_SIZE: Pixels = 16.0;
@@ -51,7 +54,17 @@ impl State {
     }
 }
 
-#[macroquad::main("L-scale")]
+fn window_conf() -> Conf {
+    Conf {
+        // high_dpi: true,
+        window_title: "L-scale".to_owned(),
+        window_width: DEFAULT_WINDOW_WIDTH,
+        window_height: DEFAULT_WINDOW_HEIGHT,
+        ..Default::default()
+    }
+}
+
+#[macroquad::main(window_conf)]
 async fn main() {
     let mut state = State::new();
     let mut arena = calculate_arena(ARENA);
@@ -164,7 +177,7 @@ fn calculate_arena(normalized: Rect) -> Rect {
     Rect::new(x * 0.6, y, w, h)
 }
 fn draw_arena(arena: Rect, state: &State) {
-    draw_rectangle_lines(arena.x, arena.y, arena.w, arena.h, 2.0, BLACK);
+    // draw_rectangle_lines(arena.x, arena.y, arena.w, arena.h, 2.0, BLACK);
     for target in &state.targets {
         let absolute_pos = *target;
         draw_circle(absolute_pos.x, absolute_pos.y, RADIUS, BLUE);
