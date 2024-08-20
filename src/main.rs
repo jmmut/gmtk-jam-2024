@@ -270,11 +270,13 @@ fn draw_circles(
         circles,
         selected,
         levels,
+        targets,
         ..
     }: &State,
 ) -> (i32, bool) {
     let mut drawn = 0;
     let mut too_many = false;
+    let mut touching_target = false;
     for (i, circle) in circles.iter().enumerate() {
         let mut color = if same(*selected, i) {
             STRONG_CIRCLE_COLOR
@@ -304,13 +306,15 @@ fn draw_circles(
                 Vec2::default(),
                 *circle,
                 color,
+                targets,
                 &mut drawn,
+                &mut touching_target,
             ) {
                 too_many = true;
             }
         }
     }
-    (drawn, false)
+    (drawn, touching_target)
 }
 
 #[derive(Copy, Clone)]
@@ -343,7 +347,9 @@ fn draw_nested(
     reference: NormalizedPosition,
     circle: NormalizedPosition,
     color: Color,
+    targets: &Vec<PixelPosition>,
     drawn: &mut i32,
+    touching_target: &mut bool,
 ) -> Result<(), AnyError> {
     recursion.reduce();
     let absolute_pos = normalized_to_canvas_absolute(circle);
@@ -358,11 +364,29 @@ fn draw_nested(
         1.0,
         color,
     );
+    if !*touching_target {
+        for target in targets {
+            if line_touches_circle(absolute_pos_ref, absolute_pos, *target, recursion.radius) {
+                *touching_target = true;
+            }
+        }
+    }
     if recursion.should_continue() {
 
         // draw_circle(absolute_pos.x, absolute_pos.y, recursion.radius, drawing_color);
         // draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, drawing_color);
     } else {
+        let center = Vec2::new(absolute_pos.x + side * 0.5, absolute_pos.y + side * 0.5);
+
+        let radius_squared = recursion.radius * recursion.radius;
+        if !*touching_target {
+            for target in targets {
+                let diff = center - *target;
+                if diff.length_squared() < radius_squared {
+                    *touching_target = true;
+                }
+            }
+        }
         draw_rectangle(absolute_pos.x, absolute_pos.y, side, side, drawing_color);
     }
     *drawn += 1;
@@ -378,11 +402,44 @@ fn draw_nested(
             };
             let nested_pos = nest_pos(circle, *circle_1, recursion.scale);
             draw_nested(
-                recursion, circles, selected, circle, nested_pos, color2, drawn,
+                recursion,
+                circles,
+                selected,
+                circle,
+                nested_pos,
+                color2,
+                targets,
+                drawn,
+                touching_target,
             )?;
         }
     }
     Ok(())
+}
+
+fn line_touches_circle(
+    absolute_pos_ref: PixelPosition,
+    absolute_pos: PixelPosition,
+    target: PixelPosition,
+    radius: f32,
+) -> bool {
+    let segment = absolute_pos - absolute_pos_ref;
+    let segment_normalized = segment.normalize();
+    let line_to_circle = target - absolute_pos_ref;
+    let line_to_circle_normalized = line_to_circle.normalize();
+    let distance_to_closest_point = line_to_circle.dot(segment_normalized);
+    let segment_length = segment.length();
+    // if distance_to_closest_point < - radius || distance_to_closest_point > segment_length + radius {
+    //     return true;
+    // }
+    let vector_to_closest_point = segment_normalized * distance_to_closest_point;
+    let closest_point = absolute_pos_ref + vector_to_closest_point;
+    let perpendicular_vector = closest_point - target;
+    let perpendicular_distance_squared = perpendicular_vector.length_squared();
+    let close_to_line = perpendicular_distance_squared < radius * radius;
+    close_to_line
+        && distance_to_closest_point > -radius
+        && distance_to_closest_point < segment_length + radius
 }
 
 fn same(maybe_selected: Option<usize>, index: usize) -> bool {
