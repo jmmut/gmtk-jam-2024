@@ -12,6 +12,8 @@ const FONT_SIZE: Pixels = 16.0;
 const THICKNESS: Pixels = 2.0;
 const RADIUS: Pixels = 10.0;
 const MAX_DRAWN: i32 = 100000;
+const ARENA: Rect = Rect {x: 0.0, y: 0.0, w: 0.5, h:0.5};
+
 const FAINT_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.2);
 const STRONG_CIRCLE_COLOR: Color = Color::new(0.8, 0.8, 0.2, 0.7);
 const SETTLED_CIRCLE_COLOR: Color = Color::new(0.8, 0.5, 0.2, 0.7);
@@ -45,6 +47,9 @@ async fn main() {
         edit_circles(&mut state);
         let drawn = draw_circles(&state);
         draw_stats(&mut state, &drawn);
+        let Vec2 { x, y } = normalized_to_canvas_absolute(ARENA.point());
+        let Vec2 { x: w, y: h } = normalized_to_canvas_absolute(ARENA.size());
+        draw_rectangle_lines(x * 0.5, y, w, h, 2.0, BLACK);
         next_frame().await
     }
 }
@@ -299,5 +304,5 @@ fn normalized_to_canvas_absolute(pos: NormalizedPosition) -> PixelPosition {
     let sw = screen_width();
     let canvas_x = 0.3 * (screen_width() - 4.0 * PAD - EDITOR_SIZE);
     let canvas_y = canvas_x;
-    return Vec2::new(pos.x * canvas_x + sw * 0.45, pos.y * canvas_y + sw * 0.2);
+    return Vec2::new(pos.x * canvas_x + sw * 0.57, pos.y * canvas_y + sw * 0.28);
 }
