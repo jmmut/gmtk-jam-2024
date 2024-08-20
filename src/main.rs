@@ -79,11 +79,10 @@ async fn main() {
         clear_background(DARKGRAY);
 
         draw_editor();
-        let after_instructions_pos = draw_instructions();
-
         draw_buttons(&mut state);
         edit_circles(&mut state);
         let (drawn, touching_targets) = draw_circles(&state);
+        let after_instructions_pos = draw_instructions(touching_targets);
         maybe_create_target(&mut state, arena, after_instructions_pos, touching_targets);
         draw_stats(&mut state, &drawn);
         draw_arena(arena, &state);
@@ -114,6 +113,7 @@ fn maybe_create_target(
         " Restart ",
     ) {
         state.targets.clear();
+        state.accumulated_score = 0.0;
     }
 }
 
@@ -133,7 +133,7 @@ fn draw_editor() {
     draw_text(&"Editor:", PAD, PAD + FONT_SIZE, FONT_SIZE, LIGHTGRAY);
     draw_rectangle_lines(EDITOR.x, EDITOR.y, EDITOR.w, EDITOR.h, THICKNESS, LIGHTGRAY);
 }
-fn draw_instructions() -> PixelPosition {
+fn draw_instructions(touching_targets: bool) -> PixelPosition {
     let x = PAD * 4.0 + EDITOR_SIZE;
     let mut y = PAD + FONT_SIZE * 1.0;
     draw_text(
@@ -167,6 +167,16 @@ fn draw_instructions() -> PixelPosition {
         FONT_SIZE,
         LIGHTGRAY,
     );
+    y += FONT_SIZE;
+    if touching_targets {
+        draw_text(
+            &"Move your shape out of the blue spots!",
+            x,
+            y,
+            FONT_SIZE,
+            ORANGE,
+        );
+    }
     y += FONT_SIZE;
     return Vec2::new(x, y);
 }
